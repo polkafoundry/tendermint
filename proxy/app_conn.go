@@ -52,6 +52,17 @@ type AppConnSnapshot interface {
 	ApplySnapshotChunkSync(types.RequestApplySnapshotChunk) (*types.ResponseApplySnapshotChunk, error)
 }
 
+type AppConnOpMempool interface {
+	SetResponseCallback(abcicli.Callback)
+	Error() error
+
+	CheckOpAsync(types.RequestCheckOp) *abcicli.ReqRes
+	CheckOpSync(types.RequestCheckOp) (*types.ResponseCheckOp, error)
+
+	FlushAsync() *abcicli.ReqRes
+	FlushSync() error
+}
+
 //-----------------------------------------------------------------------------------------
 // Implements AppConnConsensus (subset of abcicli.Client)
 
@@ -192,4 +203,38 @@ func (app *appConnSnapshot) LoadSnapshotChunkSync(
 func (app *appConnSnapshot) ApplySnapshotChunkSync(
 	req types.RequestApplySnapshotChunk) (*types.ResponseApplySnapshotChunk, error) {
 	return app.appConn.ApplySnapshotChunkSync(req)
+}
+
+type appConnOpMempool struct {
+	appConn abcicli.Client
+}
+
+func NewAppConnOpMempool(appConn abcicli.Client) AppConnOpMempool {
+	return &appConnOpMempool{
+		appConn: appConn,
+	}
+}
+
+func (app appConnOpMempool) SetResponseCallback(callback abcicli.Callback) {
+	app.appConn.SetResponseCallback(callback)
+}
+
+func (app appConnOpMempool) Error() error {
+	return app.appConn.Error()
+}
+
+func (app appConnOpMempool) CheckOpAsync(op types.RequestCheckOp) *abcicli.ReqRes {
+	return app.appConn.CheckOpAsync(op)
+}
+
+func (app appConnOpMempool) CheckOpSync(op types.RequestCheckOp) (*types.ResponseCheckOp, error) {
+	return app.appConn.CheckOpSync(op)
+}
+
+func (app appConnOpMempool) FlushAsync() *abcicli.ReqRes {
+	return app.appConn.FlushAsync()
+}
+
+func (app appConnOpMempool) FlushSync() error {
+	return app.appConn.FlushSync()
 }

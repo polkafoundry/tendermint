@@ -29,6 +29,8 @@ type Application interface {
 	OfferSnapshot(RequestOfferSnapshot) ResponseOfferSnapshot                // Offer a snapshot to the application
 	LoadSnapshotChunk(RequestLoadSnapshotChunk) ResponseLoadSnapshotChunk    // Load a snapshot chunk
 	ApplySnapshotChunk(RequestApplySnapshotChunk) ResponseApplySnapshotChunk // Apply a shapshot chunk
+
+	CheckOp(RequestCheckOp) ResponseCheckOp
 }
 
 //-------------------------------------------------------
@@ -93,6 +95,10 @@ func (BaseApplication) LoadSnapshotChunk(req RequestLoadSnapshotChunk) ResponseL
 
 func (BaseApplication) ApplySnapshotChunk(req RequestApplySnapshotChunk) ResponseApplySnapshotChunk {
 	return ResponseApplySnapshotChunk{}
+}
+
+func (BaseApplication) CheckOp(req RequestCheckOp) ResponseCheckOp {
+	return ResponseCheckOp{}
 }
 
 //-------------------------------------------------------
@@ -180,5 +186,11 @@ func (app *GRPCApplication) LoadSnapshotChunk(
 func (app *GRPCApplication) ApplySnapshotChunk(
 	ctx context.Context, req *RequestApplySnapshotChunk) (*ResponseApplySnapshotChunk, error) {
 	res := app.app.ApplySnapshotChunk(*req)
+	return &res, nil
+}
+
+func (app *GRPCApplication) CheckOp(
+	ctx context.Context, req *RequestCheckOp) (*ResponseCheckOp, error) {
+	res := app.app.CheckOp(*req)
 	return &res, nil
 }

@@ -207,6 +207,17 @@ func (app *localClient) ApplySnapshotChunkAsync(req types.RequestApplySnapshotCh
 	)
 }
 
+func (app *localClient) CheckOpAsync(req types.RequestCheckOp) *ReqRes {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+
+	res := app.Application.CheckOp(req)
+	return app.callback(
+		types.ToRequestCheckOp(req),
+		types.ToResponseCheckOp(res),
+	)
+}
+
 //-------------------------------------------------------
 
 func (app *localClient) FlushSync() error {
@@ -320,6 +331,14 @@ func (app *localClient) ApplySnapshotChunkSync(
 	defer app.mtx.Unlock()
 
 	res := app.Application.ApplySnapshotChunk(req)
+	return &res, nil
+}
+
+func (app *localClient) CheckOpSync(req types.RequestCheckOp) (*types.ResponseCheckOp, error) {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+
+	res := app.Application.CheckOp(req)
 	return &res, nil
 }
 

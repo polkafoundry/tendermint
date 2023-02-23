@@ -77,6 +77,7 @@ type Config struct {
 	Storage         *StorageConfig         `mapstructure:"storage"`
 	TxIndex         *TxIndexConfig         `mapstructure:"tx_index"`
 	Instrumentation *InstrumentationConfig `mapstructure:"instrumentation"`
+	OpMempoolConfig *OpMempoolConfig       `mapstructure:"op_mempool"`
 }
 
 // DefaultConfig returns a default configuration for a Tendermint node
@@ -92,6 +93,7 @@ func DefaultConfig() *Config {
 		Storage:         DefaultStorageConfig(),
 		TxIndex:         DefaultTxIndexConfig(),
 		Instrumentation: DefaultInstrumentationConfig(),
+		OpMempoolConfig: DefaultOpMempoolConfig(),
 	}
 }
 
@@ -1214,4 +1216,107 @@ func getDefaultMoniker() string {
 		moniker = "anonymous"
 	}
 	return moniker
+}
+
+// OpMempoolConfig defines the configuration options for the Tendermint mempool
+type OpMempoolConfig struct {
+	// Mempool version to use:
+	//  1) "v0" - (default) FIFO mempool.
+	//  2) "v1" - prioritized mempool.
+	// WARNING: There's a known memory leak with the prioritized mempool
+	// that the team are working on. Read more here:
+	// https://github.com/tendermint/tendermint/issues/8775
+	Version   string `mapstructure:"version"`
+	RootDir   string `mapstructure:"home"`
+	Recheck   bool   `mapstructure:"recheck"`
+	Broadcast bool   `mapstructure:"broadcast"`
+	WalPath   string `mapstructure:"wal_dir"`
+	// Maximum number of transactions in the mempool
+	Size int `mapstructure:"size"`
+	// Limit the total size of all ops in the mempool.
+	// This only accounts for raw transactions (e.g. given 1MB transactions and
+	// max_ops_bytes=5MB, mempool will only accept 5 transactions).
+	MaxOpsBytes int64 `mapstructure:"max_ops_bytes"`
+	// Size of the cache (used to filter transactions we saw earlier) in transactions
+	CacheSize int `mapstructure:"cache_size"`
+	// Do not remove invalid transactions from the cache (default: false)
+	// Set to true if it's not possible for any invalid transaction to become
+	// valid again in the future.
+	KeepInvalidOpsInCache bool `mapstructure:"keep-invalid-ops-in-cache"`
+	// Maximum size of a single transaction
+	// NOTE: the max size of a op transmitted over the network is {max_op_bytes}.
+	MaxOpBytes int `mapstructure:"max_op_bytes"`
+	// Maximum size of a batch of transactions to send to a peer
+	// Including space needed by encoding (one varint per transaction).
+	// XXX: Unused due to https://github.com/tendermint/tendermint/issues/5796
+	MaxBatchBytes int `mapstructure:"max_batch_bytes"`
+
+	// TTLDuration, if non-zero, defines the maximum amount of time a transaction
+	// can exist for in the mempool.
+	//
+	// Note, if TTLNumBlocks is also defined, a transaction will be removed if it
+	// has existed in the mempool at least TTLNumBlocks number of blocks or if it's
+	// insertion time into the mempool is beyond TTLDuration.
+	TTLDuration time.Duration `mapstructure:"ttl-duration"`
+
+	// TTLNumBlocks, if non-zero, defines the maximum number of blocks a transaction
+	// can exist for in the mempool.
+	//
+	// Note, if TTLDuration is also defined, a transaction will be removed if it
+	// has existed in the mempool at least TTLNumBlocks number of blocks or if
+	// it's insertion time into the mempool is beyond TTLDuration.
+	TTLNumBlocks int64 `mapstructure:"ttl-num-blocks"`
+}
+
+// DefaultOpMempoolConfig returns a default configuration for the Tendermint mempool
+func DefaultOpMempoolConfig() *OpMempoolConfig {
+	return &OpMempoolConfig{
+		Version:   MempoolV0,
+		Recheck:   true,
+		Broadcast: true,
+		WalPath:   "",
+		// Each signature verification takes .5ms, Size reduced until we implement
+		// ABCI Recheck
+		Size:         5000,
+		MaxOpsBytes:  1024 * 1024 * 1024, // 1GB
+		CacheSize:    10000,
+		MaxOpBytes:   1024 * 1024, // 1MB
+		TTLDuration:  0 * time.Second,
+		TTLNumBlocks: 0,
+	}
+}
+
+// TestMempoolConfig returns a configuration for testing the Tendermint mempool
+func TestOpMempoolConfig() *OpMempoolConfig {
+	cfg := DefaultOpMempoolConfig()
+	cfg.CacheSize = 1000
+	return cfg
+}
+
+// WalDir returns the full path to the mempool's write-ahead log
+func (cfg *OpMempoolConfig) WalDir() string {
+	return rootify(cfg.WalPath, cfg.RootDir)
+}
+
+// WalEnabled returns true if the WAL is enabled.
+func (cfg *OpMempoolConfig) WalEnabled() bool {
+	return cfg.WalPath != ""
+}
+
+// ValidateBasic performs basic validation (checking param bounds, etc.) and
+// returns an error if any check fails.
+func (cfg *OpMempoolConfig) ValidateBasic() error {
+	if cfg.Size < 0 {
+		return errors.New("size can't be negative")
+	}
+	if cfg.MaxOpsBytes < 0 {
+		return errors.New("max_ops_bytes can't be negative")
+	}
+	if cfg.CacheSize < 0 {
+		return errors.New("cache_size can't be negative")
+	}
+	if cfg.MaxOpBytes < 0 {
+		return errors.New("max_op_bytes can't be negative")
+	}
+	return nil
 }

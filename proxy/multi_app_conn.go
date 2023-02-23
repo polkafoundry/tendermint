@@ -14,6 +14,7 @@ const (
 	connMempool   = "mempool"
 	connQuery     = "query"
 	connSnapshot  = "snapshot"
+	connOpMempool = "op-mempool"
 )
 
 // AppConns is the Tendermint's interface to the application that consists of
@@ -29,6 +30,8 @@ type AppConns interface {
 	Query() AppConnQuery
 	// Snapshot connection
 	Snapshot() AppConnSnapshot
+	// OpMempool connection
+	OpMempool() AppConnOpMempool
 }
 
 // NewAppConns calls NewMultiAppConn.
@@ -48,11 +51,13 @@ type multiAppConn struct {
 	mempoolConn   AppConnMempool
 	queryConn     AppConnQuery
 	snapshotConn  AppConnSnapshot
+	opMempoolConn AppConnOpMempool
 
 	consensusConnClient abcicli.Client
 	mempoolConnClient   abcicli.Client
 	queryConnClient     abcicli.Client
 	snapshotConnClient  abcicli.Client
+	opMempoolConnClient abcicli.Client
 
 	clientCreator ClientCreator
 }
@@ -80,6 +85,10 @@ func (app *multiAppConn) Query() AppConnQuery {
 
 func (app *multiAppConn) Snapshot() AppConnSnapshot {
 	return app.snapshotConn
+}
+
+func (app *multiAppConn) OpMempool() AppConnOpMempool {
+	return app.opMempoolConn
 }
 
 func (app *multiAppConn) OnStart() error {
@@ -113,6 +122,14 @@ func (app *multiAppConn) OnStart() error {
 	}
 	app.consensusConnClient = c
 	app.consensusConn = NewAppConnConsensus(c)
+
+	c, err = app.abciClientFor(connOpMempool)
+	if err != nil {
+		app.stopAllClients()
+		return err
+	}
+	app.opMempoolConnClient = c
+	app.opMempoolConn = NewAppConnOpMempool(c)
 
 	// Kill Tendermint if the ABCI application crashes.
 	go app.killTMOnClientError()
@@ -152,6 +169,10 @@ func (app *multiAppConn) killTMOnClientError() {
 		if err := app.snapshotConnClient.Error(); err != nil {
 			killFn(connSnapshot, err, app.Logger)
 		}
+	case <-app.opMempoolConnClient.Quit():
+		if err := app.opMempoolConnClient.Error(); err != nil {
+			killFn(connOpMempool, err, app.Logger)
+		}
 	}
 }
 
@@ -174,6 +195,11 @@ func (app *multiAppConn) stopAllClients() {
 	if app.snapshotConnClient != nil {
 		if err := app.snapshotConnClient.Stop(); err != nil {
 			app.Logger.Error("error while stopping snapshot client", "error", err)
+		}
+	}
+	if app.opMempoolConnClient != nil {
+		if err := app.opMempoolConnClient.Stop(); err != nil {
+			app.Logger.Error("error while stopping op mempool client", "error", err)
 		}
 	}
 }

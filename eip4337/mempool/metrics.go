@@ -20,22 +20,22 @@ type Metrics struct {
 	Size metrics.Gauge
 
 	// Histogram of transaction sizes, in bytes.
-	TxSizeBytes metrics.Histogram
+	OpSizeBytes metrics.Histogram
 
 	// Number of failed transactions.
-	FailedTxs metrics.Counter
+	FailedOps metrics.Counter
 
-	// RejectedTxs defines the number of rejected transactions. These are
-	// transactions that passed CheckTx but failed to make it into the mempool
+	// RejectedOps defines the number of rejected transactions. These are
+	// transactions that passed CheckOp but failed to make it into the mempool
 	// due to resource limits, e.g. mempool is full and no lower priority
 	// transactions exist in the mempool.
-	RejectedTxs metrics.Counter
+	RejectedOps metrics.Counter
 
-	// EvictedTxs defines the number of evicted transactions. These are valid
-	// transactions that passed CheckTx and existed in the mempool but were later
+	// EvictedOps defines the number of evicted transactions. These are valid
+	// transactions that passed CheckOp and existed in the mempool but were later
 	// evicted to make room for higher priority valid transactions that passed
-	// CheckTx.
-	EvictedTxs metrics.Counter
+	// CheckOp.
+	EvictedOps metrics.Counter
 
 	// Number of times transactions are rechecked in the mempool.
 	RecheckTimes metrics.Counter
@@ -57,32 +57,32 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Help:      "Size of the mempool (number of uncommitted transactions).",
 		}, labels).With(labelsAndValues...),
 
-		TxSizeBytes: prometheus.NewHistogramFrom(stdprometheus.HistogramOpts{
+		OpSizeBytes: prometheus.NewHistogramFrom(stdprometheus.HistogramOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
-			Name:      "tx_size_bytes",
+			Name:      "op_size_bytes",
 			Help:      "Transaction sizes in bytes.",
 			Buckets:   stdprometheus.ExponentialBuckets(1, 3, 17),
 		}, labels).With(labelsAndValues...),
 
-		FailedTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+		FailedOps: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
-			Name:      "failed_txs",
+			Name:      "failed_ops",
 			Help:      "Number of failed transactions.",
 		}, labels).With(labelsAndValues...),
 
-		RejectedTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+		RejectedOps: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
-			Name:      "rejected_txs",
+			Name:      "rejected_ops",
 			Help:      "Number of rejected transactions.",
 		}, labels).With(labelsAndValues...),
 
-		EvictedTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+		EvictedOps: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
-			Name:      "evicted_txs",
+			Name:      "evicted_ops",
 			Help:      "Number of evicted transactions.",
 		}, labels).With(labelsAndValues...),
 
@@ -99,10 +99,10 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 func NopMetrics() *Metrics {
 	return &Metrics{
 		Size:         discard.NewGauge(),
-		TxSizeBytes:  discard.NewHistogram(),
-		FailedTxs:    discard.NewCounter(),
-		RejectedTxs:  discard.NewCounter(),
-		EvictedTxs:   discard.NewCounter(),
+		OpSizeBytes:  discard.NewHistogram(),
+		FailedOps:    discard.NewCounter(),
+		RejectedOps:  discard.NewCounter(),
+		EvictedOps:   discard.NewCounter(),
 		RecheckTimes: discard.NewCounter(),
 	}
 }

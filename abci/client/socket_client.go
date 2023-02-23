@@ -279,6 +279,10 @@ func (cli *socketClient) ApplySnapshotChunkAsync(req types.RequestApplySnapshotC
 	return cli.queueRequest(types.ToRequestApplySnapshotChunk(req))
 }
 
+func (cli *socketClient) CheckOpAsync(req types.RequestCheckOp) *ReqRes {
+	return cli.queueRequest(types.ToRequestCheckOp(req))
+}
+
 //----------------------------------------
 
 func (cli *socketClient) FlushSync() error {
@@ -417,6 +421,15 @@ func (cli *socketClient) ApplySnapshotChunkSync(
 	return reqres.Response.GetApplySnapshotChunk(), cli.Error()
 }
 
+func (cli *socketClient) CheckOpSync(
+	req types.RequestCheckOp) (*types.ResponseCheckOp, error) {
+	reqres := cli.queueRequest(types.ToRequestCheckOp(req))
+	if err := cli.FlushSync(); err != nil {
+		return nil, err
+	}
+	return reqres.Response.GetCheckOp(), cli.Error()
+}
+
 //----------------------------------------
 
 func (cli *socketClient) queueRequest(req *types.Request) *ReqRes {
@@ -492,6 +505,8 @@ func resMatchesReq(req *types.Request, res *types.Response) (ok bool) {
 		_, ok = res.Value.(*types.Response_ListSnapshots)
 	case *types.Request_OfferSnapshot:
 		_, ok = res.Value.(*types.Response_OfferSnapshot)
+	case *types.Request_CheckOp:
+		_, ok = res.Value.(*types.Response_CheckOp)
 	}
 	return ok
 }

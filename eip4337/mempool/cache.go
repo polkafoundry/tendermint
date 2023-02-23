@@ -7,65 +7,65 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
-// TxCache defines an interface for raw transaction caching in a mempool.
-// Currently, a TxCache does not allow direct reading or getting of transaction
-// values. A TxCache is used primarily to push transactions and removing
+// OpCache defines an interface for raw transaction caching in a mempool.
+// Currently, a OpCache does not allow direct reading or getting of transaction
+// values. A OpCache is used primarily to push transactions and removing
 // transactions. Pushing via Push returns a boolean telling the caller if the
 // transaction already exists in the cache or not.
-type TxCache interface {
+type OpCache interface {
 	// Reset resets the cache to an empty state.
 	Reset()
 
 	// Push adds the given raw transaction to the cache and returns true if it was
 	// newly added. Otherwise, it returns false.
-	Push(tx types.Tx) bool
+	Push(op types.Op) bool
 
 	// Remove removes the given raw transaction from the cache.
-	Remove(tx types.Tx)
+	Remove(op types.Op)
 
-	// Has reports whether tx is present in the cache. Checking for presence is
+	// Has reports whether op is present in the cache. Checking for presence is
 	// not treated as an access of the value.
-	Has(tx types.Tx) bool
+	Has(op types.Op) bool
 }
 
-var _ TxCache = (*LRUTxCache)(nil)
+var _ OpCache = (*LRUOpCache)(nil)
 
-// LRUTxCache maintains a thread-safe LRU cache of raw transactions. The cache
+// LRUOpCache maintains a thread-safe LRU cache of raw transactions. The cache
 // only stores the hash of the raw transaction.
-type LRUTxCache struct {
+type LRUOpCache struct {
 	mtx      tmsync.Mutex
 	size     int
-	cacheMap map[types.TxKey]*list.Element
+	cacheMap map[types.OpKey]*list.Element
 	list     *list.List
 }
 
-func NewLRUTxCache(cacheSize int) *LRUTxCache {
-	return &LRUTxCache{
+func NewLRUOpCache(cacheSize int) *LRUOpCache {
+	return &LRUOpCache{
 		size:     cacheSize,
-		cacheMap: make(map[types.TxKey]*list.Element, cacheSize),
+		cacheMap: make(map[types.OpKey]*list.Element, cacheSize),
 		list:     list.New(),
 	}
 }
 
 // GetList returns the underlying linked-list that backs the LRU cache. Note,
 // this should be used for testing purposes only!
-func (c *LRUTxCache) GetList() *list.List {
+func (c *LRUOpCache) GetList() *list.List {
 	return c.list
 }
 
-func (c *LRUTxCache) Reset() {
+func (c *LRUOpCache) Reset() {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 
-	c.cacheMap = make(map[types.TxKey]*list.Element, c.size)
+	c.cacheMap = make(map[types.OpKey]*list.Element, c.size)
 	c.list.Init()
 }
 
-func (c *LRUTxCache) Push(tx types.Tx) bool {
+func (c *LRUOpCache) Push(op types.Op) bool {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 
-	key := tx.Key()
+	key := op.Key()
 
 	moved, ok := c.cacheMap[key]
 	if ok {
@@ -76,7 +76,7 @@ func (c *LRUTxCache) Push(tx types.Tx) bool {
 	if c.list.Len() >= c.size {
 		front := c.list.Front()
 		if front != nil {
-			frontKey := front.Value.(types.TxKey)
+			frontKey := front.Value.(types.OpKey)
 			delete(c.cacheMap, frontKey)
 			c.list.Remove(front)
 		}
@@ -88,11 +88,11 @@ func (c *LRUTxCache) Push(tx types.Tx) bool {
 	return true
 }
 
-func (c *LRUTxCache) Remove(tx types.Tx) {
+func (c *LRUOpCache) Remove(op types.Op) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 
-	key := tx.Key()
+	key := op.Key()
 	e := c.cacheMap[key]
 	delete(c.cacheMap, key)
 
@@ -101,20 +101,20 @@ func (c *LRUTxCache) Remove(tx types.Tx) {
 	}
 }
 
-func (c *LRUTxCache) Has(tx types.Tx) bool {
+func (c *LRUOpCache) Has(op types.Op) bool {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 
-	_, ok := c.cacheMap[tx.Key()]
+	_, ok := c.cacheMap[op.Key()]
 	return ok
 }
 
-// NopTxCache defines a no-op raw transaction cache.
-type NopTxCache struct{}
+// NopOpCache defines a no-op raw transaction cache.
+type NopOpCache struct{}
 
-var _ TxCache = (*NopTxCache)(nil)
+var _ OpCache = (*NopOpCache)(nil)
 
-func (NopTxCache) Reset()             {}
-func (NopTxCache) Push(types.Tx) bool { return true }
-func (NopTxCache) Remove(types.Tx)    {}
-func (NopTxCache) Has(types.Tx) bool  { return false }
+func (NopOpCache) Reset()             {}
+func (NopOpCache) Push(types.Op) bool { return true }
+func (NopOpCache) Remove(types.Op)    {}
+func (NopOpCache) Has(types.Op) bool  { return false }

@@ -4,9 +4,9 @@ import (
 	"github.com/tendermint/tendermint/p2p"
 )
 
-// TxInfo are parameters that get passed when attempting to add a tx to the
+// OpInfo are parameters that get passed when attempting to add a tx to the
 // mempool.
-type TxInfo struct {
+type OpInfo struct {
 	// SenderID is the internal peer ID used in the mempool to identify the
 	// sender, storing two bytes with each transaction instead of 20 bytes for
 	// the types.NodeID.

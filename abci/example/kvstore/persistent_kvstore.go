@@ -170,6 +170,11 @@ func (app *PersistentKVStoreApplication) ApplySnapshotChunk(
 	return types.ResponseApplySnapshotChunk{Result: types.ResponseApplySnapshotChunk_ABORT}
 }
 
+func (app *PersistentKVStoreApplication) CheckOp(
+	req types.RequestCheckOp) types.ResponseCheckOp {
+	return types.ResponseCheckOp{}
+}
+
 //---------------------------------------------
 // update validators
 

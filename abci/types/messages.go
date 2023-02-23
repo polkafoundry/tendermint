@@ -256,3 +256,15 @@ func ToResponseApplySnapshotChunk(res ResponseApplySnapshotChunk) *Response {
 		Value: &Response_ApplySnapshotChunk{&res},
 	}
 }
+
+func ToRequestCheckOp(req RequestCheckOp) *Request {
+	return &Request{
+		Value: &Request_CheckOp{&req},
+	}
+}
+
+func ToResponseCheckOp(res ResponseCheckOp) *Response {
+	return &Response{
+		Value: &Response_CheckOp{&res},
+	}
+}
