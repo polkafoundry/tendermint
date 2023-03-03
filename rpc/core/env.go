@@ -8,6 +8,7 @@ import (
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/consensus"
 	"github.com/tendermint/tendermint/crypto"
+	opmempl "github.com/tendermint/tendermint/eip4337/mempool"
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	"github.com/tendermint/tendermint/libs/log"
 	mempl "github.com/tendermint/tendermint/mempool"
@@ -74,8 +75,9 @@ type peers interface {
 // to be setup once during startup.
 type Environment struct {
 	// external, thread safe interfaces
-	ProxyAppQuery   proxy.AppConnQuery
-	ProxyAppMempool proxy.AppConnMempool
+	ProxyAppQuery     proxy.AppConnQuery
+	ProxyAppMempool   proxy.AppConnMempool
+	ProxyAppOpMempool proxy.AppConnOpMempool
 
 	// interfaces defined in types and above
 	StateStore     sm.Store
@@ -93,6 +95,7 @@ type Environment struct {
 	ConsensusReactor *consensus.Reactor
 	EventBus         *types.EventBus // thread safe
 	Mempool          mempl.Mempool
+	OpMempool        opmempl.Mempool
 
 	Logger log.Logger
 

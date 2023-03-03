@@ -150,3 +150,13 @@ type RemoteClient interface {
 	// Remote returns the remote network address in a string form.
 	Remote() string
 }
+
+type OpMempoolClient interface {
+	BroadcastOpSync(ctx context.Context, op types.Op) (*ctypes.ResultBroadcastOp, error)
+	BroadcastOpAsync(ctx context.Context, op types.Op) (*ctypes.ResultBroadcastOp, error)
+}
+
+type ExtendedClient interface {
+	Client
+	OpMempoolClient
+}

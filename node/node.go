@@ -24,6 +24,8 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/evidence"
 
+	opmempl "github.com/tendermint/tendermint/eip4337/mempool"
+	opmempoolv0 "github.com/tendermint/tendermint/eip4337/mempool/v0"
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	"github.com/tendermint/tendermint/libs/log"
 	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
@@ -230,6 +232,7 @@ type Node struct {
 	blockIndexer      indexer.BlockIndexer
 	indexerService    *txindex.IndexerService
 	prometheusSrv     *http.Server
+	opMempool         opmempl.Mempool
 }
 
 func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB dbm.DB, err error) {
@@ -804,6 +807,8 @@ func NewNode(config *cfg.Config,
 		return nil, err
 	}
 
+	opMempool := opmempoolv0.NewCListMempool(config.OpMempoolConfig, proxyApp.OpMempool(), state.LastBlockHeight)
+
 	// make block executor for consensus and blockchain reactors to execute blocks
 	blockExec := sm.NewBlockExecutor(
 		stateStore,
@@ -812,6 +817,7 @@ func NewNode(config *cfg.Config,
 		mempool,
 		evidencePool,
 		sm.BlockExecutorWithMetrics(smMetrics),
+		sm.WithOpMempool(opMempool),
 	)
 
 	// Make BlockchainReactor. Don't start fast sync if we're doing a state sync first.
@@ -927,6 +933,7 @@ func NewNode(config *cfg.Config,
 		indexerService:   indexerService,
 		blockIndexer:     blockIndexer,
 		eventBus:         eventBus,
+		opMempool:        opMempool,
 	}
 	node.BaseService = *service.NewBaseService(logger, "Node", node)
 
@@ -1067,8 +1074,9 @@ func (n *Node) ConfigureRPC() error {
 		return fmt.Errorf("can't get pubkey: %w", err)
 	}
 	rpccore.SetEnvironment(&rpccore.Environment{
-		ProxyAppQuery:   n.proxyApp.Query(),
-		ProxyAppMempool: n.proxyApp.Mempool(),
+		ProxyAppQuery:     n.proxyApp.Query(),
+		ProxyAppMempool:   n.proxyApp.Mempool(),
+		ProxyAppOpMempool: n.proxyApp.OpMempool(),
 
 		StateStore:     n.stateStore,
 		BlockStore:     n.blockStore,
@@ -1084,6 +1092,7 @@ func (n *Node) ConfigureRPC() error {
 		ConsensusReactor: n.consensusReactor,
 		EventBus:         n.eventBus,
 		Mempool:          n.mempool,
+		OpMempool:        n.opMempool,
 
 		Logger: n.Logger.With("module", "rpc"),
 
@@ -1264,6 +1273,10 @@ func (n *Node) MempoolReactor() p2p.Reactor {
 // Mempool returns the Node's mempool.
 func (n *Node) Mempool() mempl.Mempool {
 	return n.mempool
+}
+
+func (n *Node) OpMempool() opmempl.Mempool {
+	return n.opMempool
 }
 
 // PEXReactor returns the Node's PEXReactor. It returns nil if PEX is disabled.

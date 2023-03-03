@@ -7,6 +7,7 @@ import (
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	cryptoenc "github.com/tendermint/tendermint/crypto/encoding"
+	opmempl "github.com/tendermint/tendermint/eip4337/mempool"
 	"github.com/tendermint/tendermint/libs/fail"
 	"github.com/tendermint/tendermint/libs/log"
 	mempl "github.com/tendermint/tendermint/mempool"
@@ -40,9 +41,17 @@ type BlockExecutor struct {
 	logger log.Logger
 
 	metrics *Metrics
+
+	opMempool opmempl.Mempool
 }
 
 type BlockExecutorOption func(executor *BlockExecutor)
+
+func WithOpMempool(opMempool opmempl.Mempool) BlockExecutorOption {
+	return func(executor *BlockExecutor) {
+		executor.opMempool = opMempool
+	}
+}
 
 func BlockExecutorWithMetrics(metrics *Metrics) BlockExecutorOption {
 	return func(blockExec *BlockExecutor) {
@@ -61,13 +70,14 @@ func NewBlockExecutor(
 	options ...BlockExecutorOption,
 ) *BlockExecutor {
 	res := &BlockExecutor{
-		store:    stateStore,
-		proxyApp: proxyApp,
-		eventBus: types.NopEventBus{},
-		mempool:  mempool,
-		evpool:   evpool,
-		logger:   logger,
-		metrics:  NopMetrics(),
+		store:     stateStore,
+		proxyApp:  proxyApp,
+		eventBus:  types.NopEventBus{},
+		mempool:   mempool,
+		evpool:    evpool,
+		logger:    logger,
+		metrics:   NopMetrics(),
+		opMempool: &opmempl.NoopMempool{},
 	}
 
 	for _, option := range options {
@@ -213,12 +223,21 @@ func (blockExec *BlockExecutor) Commit(
 	block *types.Block,
 	deliverTxResponses []*abci.ResponseDeliverTx,
 ) ([]byte, int64, error) {
+	blockExec.opMempool.Lock()
+	defer blockExec.opMempool.Unlock()
+
+	err := blockExec.opMempool.FlushAppConn()
+	if err != nil {
+		blockExec.logger.Error("client error during opMempool.FlushAppConn", "err", err)
+		return nil, 0, err
+	}
+
 	blockExec.mempool.Lock()
 	defer blockExec.mempool.Unlock()
 
 	// while mempool is Locked, flush to ensure all async requests have completed
 	// in the ABCI app before Commit.
-	err := blockExec.mempool.FlushAppConn()
+	err = blockExec.mempool.FlushAppConn()
 	if err != nil {
 		blockExec.logger.Error("client error during mempool.FlushAppConn", "err", err)
 		return nil, 0, err
@@ -246,6 +265,15 @@ func (blockExec *BlockExecutor) Commit(
 		deliverTxResponses,
 		TxPreCheck(state),
 		TxPostCheck(state),
+	)
+
+	// TODO: correcting parameters
+	err = blockExec.opMempool.Update(
+		block.Height,
+		nil,
+		nil,
+		nil,
+		nil,
 	)
 
 	return res.Data, res.RetainHeight, err

@@ -111,6 +111,14 @@ func (c *Local) CheckTx(ctx context.Context, tx types.Tx) (*ctypes.ResultCheckTx
 	return core.CheckTx(c.ctx, tx)
 }
 
+func (c *Local) BroadcastOpAsync(ctx context.Context, op types.Op) (*ctypes.ResultBroadcastOp, error) {
+	return core.BroadcastOpAsync(c.ctx, op)
+}
+
+func (c *Local) BroadcastOpSync(ctx context.Context, op types.Op) (*ctypes.ResultBroadcastOp, error) {
+	return core.BroadcastOpSync(c.ctx, op)
+}
+
 func (c *Local) NetInfo(ctx context.Context) (*ctypes.ResultNetInfo, error) {
 	return core.NetInfo(c.ctx)
 }

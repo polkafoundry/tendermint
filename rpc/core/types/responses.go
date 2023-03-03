@@ -189,6 +189,14 @@ type ResultCheckTx struct {
 	abci.ResponseCheckTx
 }
 
+type ResultBroadcastOp struct {
+	Hash bytes.HexBytes `json:"hash"`
+}
+
+type ResultCheckOp struct {
+	abci.ResponseCheckOp
+}
+
 // Result of querying for a tx
 type ResultTx struct {
 	Hash     bytes.HexBytes         `json:"hash"`

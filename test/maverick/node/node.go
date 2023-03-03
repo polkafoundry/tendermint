@@ -25,6 +25,8 @@ import (
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/consensus"
 	"github.com/tendermint/tendermint/crypto"
+	opmempl "github.com/tendermint/tendermint/eip4337/mempool"
+	opmempoolv0 "github.com/tendermint/tendermint/eip4337/mempool/v0"
 	"github.com/tendermint/tendermint/evidence"
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	"github.com/tendermint/tendermint/libs/log"
@@ -257,6 +259,7 @@ type Node struct {
 	blockIndexer      indexer.BlockIndexer
 	indexerService    *txindex.IndexerService
 	prometheusSrv     *http.Server
+	opMempool         opmempl.Mempool
 }
 
 func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB dbm.DB, err error) {
@@ -816,6 +819,8 @@ func NewNode(config *cfg.Config,
 		return nil, err
 	}
 
+	opMempool := opmempoolv0.NewCListMempool(config.OpMempoolConfig, proxyApp.OpMempool(), state.LastBlockHeight)
+
 	// make block executor for consensus and blockchain reactors to execute blocks
 	blockExec := sm.NewBlockExecutor(
 		stateStore,
@@ -824,6 +829,7 @@ func NewNode(config *cfg.Config,
 		mempool,
 		evidencePool,
 		sm.BlockExecutorWithMetrics(smMetrics),
+		sm.WithOpMempool(opMempool),
 	)
 
 	// Make BlockchainReactor. Don't start fast sync if we're doing a state sync first.
@@ -940,6 +946,7 @@ func NewNode(config *cfg.Config,
 		indexerService:   indexerService,
 		blockIndexer:     blockIndexer,
 		eventBus:         eventBus,
+		opMempool:        opMempool,
 	}
 	node.BaseService = *service.NewBaseService(logger, "Node", node)
 
@@ -1314,6 +1321,10 @@ func (n *Node) IsListening() bool {
 // NodeInfo returns the Node's Info from the Switch.
 func (n *Node) NodeInfo() p2p.NodeInfo {
 	return n.nodeInfo
+}
+
+func (n *Node) OpMempool() opmempl.Mempool {
+	return n.opMempool
 }
 
 func makeNodeInfo(
