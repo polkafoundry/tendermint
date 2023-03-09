@@ -35,9 +35,12 @@ func BroadcastOpSync(ctx *rpctypes.Context, op types.Op) (*ctypes.ResultBroadcas
 	case <-ctx.Context().Done():
 		return nil, fmt.Errorf("broadcast confirmation not received: %w", ctx.Context().Err())
 	case res := <-resCh:
-		_ = res.GetCheckTx()
+		r := res.GetCheckOp()
 		return &ctypes.ResultBroadcastOp{
-			Hash: op.Hash(),
+			Code:      r.Code,
+			Codespace: r.Codespace,
+			Ret:       r.Ret,
+			Hash:      op.Hash(),
 		}, nil
 	}
 }

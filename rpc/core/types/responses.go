@@ -190,7 +190,10 @@ type ResultCheckTx struct {
 }
 
 type ResultBroadcastOp struct {
-	Hash bytes.HexBytes `json:"hash"`
+	Code      uint32         `json:"code"`
+	Codespace string         `json:"codespace"`
+	Ret       bytes.HexBytes `json:"ret"`
+	Hash      bytes.HexBytes `json:"hash"`
 }
 
 type ResultCheckOp struct {

@@ -16,6 +16,8 @@ import (
 
 // OpKeySize is the size of the transaction key index
 const OpKeySize = sha256.Size
+const EventUserOperation = "UserOperation"
+const EventKeyUserOperation = "UserOperation"
 
 type (
 	// Op is an arbitrary byte array.

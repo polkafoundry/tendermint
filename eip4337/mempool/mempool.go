@@ -64,7 +64,7 @@ type Mempool interface {
 	// 2. Lock/Unlock must be managed by the caller.
 	Update(height int64,
 		ops types.Ops,
-		deliverTxResponses []*abci.ResponseDeliverOp,
+		deliverOpResponses []*abci.ResponseDeliverOp,
 		preCheck PreCheckFunc,
 		postCheck PostCheckFunc) error
 

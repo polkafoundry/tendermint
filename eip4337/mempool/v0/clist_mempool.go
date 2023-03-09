@@ -236,9 +236,9 @@ func (mem *CListMempool) CheckOp(
 		return err
 	}
 
-	if !mem.cache.Push(op) { // if the transaction already exists in the cache
-		// Record a new sender for a op we've already seen.
-		// Note it's possible a op is still in the cache but no longer in the mempool
+	if !mem.cache.Push(op) { // if the operation already exists in the cache
+		// Record a new sender for an op we've already seen.
+		// Note it's possible an op is still in the cache but no longer in the mempool
 		// (eg. after committing a block, ops are removed from mempool but not cache),
 		// so we only record the sender for ops still in the mempool.
 		if e, ok := mem.opsMap.Load(op.Key()); ok {
@@ -400,7 +400,7 @@ func (mem *CListMempool) resCbFirstTime(
 			mem.addOp(memOp)
 			mem.logger.Debug(
 				"added good operation",
-				"tx", types.Op(op).Hash(),
+				"op", types.Op(op).Hash(),
 				"res", r,
 				"height", memOp.height,
 				"total", mem.Size(),
@@ -454,7 +454,7 @@ func (mem *CListMempool) resCbRecheck(req *abci.Request, res *abci.Response) {
 			)
 
 			if mem.recheckCursor == mem.recheckEnd {
-				// we reached the end of the recheckTx list without finding a op
+				// we reached the end of the recheckOp list without finding a op
 				// matching the one we received from the ABCI application.
 				// Return without processing any op.
 				mem.recheckCursor = nil
@@ -473,8 +473,8 @@ func (mem *CListMempool) resCbRecheck(req *abci.Request, res *abci.Response) {
 		if (r.CheckOp.Code == abci.CodeTypeOK) && postCheckErr == nil {
 			// Good, nothing to do.
 		} else {
-			// Tx became invalidated due to newly committed block.
-			mem.logger.Debug("op is no longer valid", "op", types.Tx(op).Hash(), "res", r, "err", postCheckErr)
+			// Op became invalidated due to newly committed block.
+			mem.logger.Debug("op is no longer valid", "op", types.Op(op).Hash(), "res", r, "err", postCheckErr)
 			// NOTE: we remove op from the cache because it might be good later
 			mem.removeOp(op, mem.recheckCursor, !mem.config.KeepInvalidOpsInCache)
 		}
@@ -485,9 +485,9 @@ func (mem *CListMempool) resCbRecheck(req *abci.Request, res *abci.Response) {
 		}
 		if mem.recheckCursor == nil {
 			// Done!
-			mem.logger.Debug("done rechecking txs")
+			mem.logger.Debug("done rechecking ops")
 
-			// incase the recheck removed all txs
+			// incase the recheck removed all ops
 			if mem.Size() > 0 {
 				mem.notifyOpsAvailable()
 			}
@@ -578,7 +578,7 @@ func (mem *CListMempool) ReapMaxOps(max int) types.Ops {
 func (mem *CListMempool) Update(
 	height int64,
 	ops types.Ops,
-	deliverTxResponses []*abci.ResponseDeliverOp,
+	deliverOpResponses []*abci.ResponseDeliverOp,
 	preCheck mempool.PreCheckFunc,
 	postCheck mempool.PostCheckFunc,
 ) error {
@@ -594,17 +594,17 @@ func (mem *CListMempool) Update(
 	}
 
 	for i, op := range ops {
-		if deliverTxResponses[i].Code == abci.CodeTypeOK {
-			// Add valid committed tx to the cache (if missing).
+		if deliverOpResponses[i].Code == abci.CodeTypeOK {
+			// Add valid committed op to the cache (if missing).
 			_ = mem.cache.Push(op)
 		} else if !mem.config.KeepInvalidOpsInCache {
 			// Allow invalid transactions to be resubmitted.
 			mem.cache.Remove(op)
 		}
 
-		// Remove committed tx from the mempool.
+		// Remove committed op from the mempool.
 		//
-		// Note an evil proposer can drop valid txs!
+		// Note an evil proposer can drop valid ops!
 		// Mempool before:
 		//   100 -> 101 -> 102
 		// Block, proposed by an evil proposer:
@@ -617,14 +617,14 @@ func (mem *CListMempool) Update(
 		}
 	}
 
-	// Either recheck non-committed txs to see if they became invalid
-	// or just notify there're some txs left.
+	// Either recheck non-committed ops to see if they became invalid
+	// or just notify there're some ops left.
 	if mem.Size() > 0 {
 		if mem.config.Recheck {
-			mem.logger.Debug("recheck txs", "numtxs", mem.Size(), "height", height)
+			mem.logger.Debug("recheck ops", "numops", mem.Size(), "height", height)
 			mem.recheckOps()
-			// At this point, mem.txs are being rechecked.
-			// mem.recheckCursor re-scans mem.txs and possibly removes some txs.
+			// At this point, mem.ops are being rechecked.
+			// mem.recheckCursor re-scans mem.ops and possibly removes some ops.
 			// Before mem.Reap(), we should wait for mem.recheckCursor to be nil.
 		} else {
 			mem.notifyOpsAvailable()

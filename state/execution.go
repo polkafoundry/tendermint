@@ -1,6 +1,7 @@
 package state
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -267,16 +268,63 @@ func (blockExec *BlockExecutor) Commit(
 		TxPostCheck(state),
 	)
 
-	// TODO: correcting parameters
+	ops, deliverOpResponses := opsFromTxs(block.Txs, deliverTxResponses)
 	err = blockExec.opMempool.Update(
 		block.Height,
-		nil,
-		nil,
+		ops,
+		deliverOpResponses,
 		nil,
 		nil,
 	)
 
 	return res.Data, res.RetainHeight, err
+}
+
+func opsFromTxs(txs types.Txs, deliverTxResponses []*abci.ResponseDeliverTx) (types.Ops, []*abci.ResponseDeliverOp) {
+	ops := make(types.Ops, 0)
+	deliverOpResponses := make([]*abci.ResponseDeliverOp, 0)
+	for i := range txs {
+		if deliverTxResponses[i].Code != abci.CodeTypeOK {
+			continue
+		}
+	checkEventLoop:
+		for _, e := range deliverTxResponses[i].Events {
+			if e.Type != types.EventUserOperation {
+				continue
+			}
+			for _, attr := range e.GetAttributes() {
+				if string(attr.Key) != types.EventKeyUserOperation {
+					continue
+				}
+				bz, err := decode(string(attr.Value))
+				if err != nil {
+					continue checkEventLoop
+				}
+				ops = append(ops, bz)
+				deliverOpResponses = append(deliverOpResponses, &abci.ResponseDeliverOp{Code: abci.CodeTypeOK})
+				break
+			}
+		}
+	}
+	return ops, deliverOpResponses
+}
+
+func has0xPrefix(input string) bool {
+	return len(input) >= 2 && input[0] == '0' && (input[1] == 'x' || input[1] == 'X')
+}
+
+func decode(input string) ([]byte, error) {
+	if len(input) == 0 {
+		return nil, errors.New("empty hex string")
+	}
+	if !has0xPrefix(input) {
+		return nil, errors.New("hex string without 0x prefix")
+	}
+	b, err := hex.DecodeString(input[2:])
+	if err != nil {
+		return nil, err
+	}
+	return b, err
 }
 
 //---------------------------------------------------------
